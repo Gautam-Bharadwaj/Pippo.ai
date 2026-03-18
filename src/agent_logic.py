@@ -114,3 +114,13 @@ class LegalReasoningAgent:
             "clause": state['clause'],
             "risk_type": verdict.get("risk_type", "Unknown"),
             "risk_level": map_score_to_level(final_score),
+            "llm_score": llm_score,
+            "ml_score": round(ml_score_raw, 2),
+            "final_score": final_score,
+            "confidence": state['risks'].get('confidence_level', 0.5),
+            "issues_detected": verdict.get("issues_detected", []),
+            "suggestion": verdict.get("suggestion", "N/A"),
+            "final_verdict": verdict.get("final_verdict", "N/A")
+        }
+        return state
+
