@@ -174,3 +174,13 @@ class LegalReasoningAgent:
             "risks": {},
             "review": {},
             "final_output": {},
+            "iterations": 0,
+            "max_iterations": 3 # Cap loop
+        }
+        
+        final_state = self.workflow.invoke(initial_state)
+        return final_state['final_output']
+
+# Compatibility Wrapper
+def analyze_risk_with_agent(clause_text: str) -> Dict[str, Any]:
+    try:
