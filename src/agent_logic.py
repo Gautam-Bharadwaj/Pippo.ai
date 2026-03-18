@@ -84,3 +84,13 @@ class LegalReasoningAgent:
             f"Original Clause: {state['clause']}\n"
             f"Analysis: {state['analysis']}\n"
             f"Identified Risks: {state['risks']}"
+        )
+        result = self._call_llm_json(SELF_CORRECTION_SYSTEM, user_input)
+        state['review'] = result
+        return state
+
+    def verdict_node(self, state: AgentState) -> AgentState:
+        logger.info("Node: Final Verdict Generator")
+        
+        # Calculate Hybrid Score
+        llm_score = state['risks'].get('llm_risk_score', 0)
