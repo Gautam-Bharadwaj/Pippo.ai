@@ -104,3 +104,13 @@ class LegalReasoningAgent:
             f"- ML Component Score: {ml_score_raw:.2f}\n"
             f"- Final Computed Score: {final_score}\n"
             f"- Detailed Analysis: {state['analysis']}\n"
+            f"- Identified Risks: {state['risks']}"
+        )
+        
+        verdict = self._call_llm_json(FINAL_VERDICT_SYSTEM, user_input)
+        
+        # Combine everything into final structured response
+        state['final_output'] = {
+            "clause": state['clause'],
+            "risk_type": verdict.get("risk_type", "Unknown"),
+            "risk_level": map_score_to_level(final_score),
