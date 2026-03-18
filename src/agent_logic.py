@@ -10,3 +10,14 @@ from src.prompts import (
     CLAUSE_ANALYZER_SYSTEM,
     RISK_IDENTIFIER_SYSTEM,
     SELF_CORRECTION_SYSTEM,
+    FINAL_VERDICT_SYSTEM
+)
+from src.ml_model import LegalMLModel
+from src.utils import (
+    parse_json_with_retry,
+    calculate_hybrid_score,
+    map_score_to_level,
+    logger
+)
+
+load_dotenv()
