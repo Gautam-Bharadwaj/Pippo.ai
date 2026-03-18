@@ -74,3 +74,13 @@ class LegalReasoningAgent:
     def risk_id_node(self, state: AgentState) -> AgentState:
         logger.info("Node: Risk Identification")
         user_input = f"Clause Content:\n{state['clause']}\n\nTechnical Analysis:\n{state['analysis']}"
+        result = self._call_llm_json(RISK_IDENTIFIER_SYSTEM, user_input)
+        state['risks'] = result
+        return state
+
+    def validate_node(self, state: AgentState) -> AgentState:
+        logger.info("Node: Validation/Self-Correction")
+        user_input = (
+            f"Original Clause: {state['clause']}\n"
+            f"Analysis: {state['analysis']}\n"
+            f"Identified Risks: {state['risks']}"
