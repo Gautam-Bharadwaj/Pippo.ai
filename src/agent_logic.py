@@ -134,3 +134,13 @@ class LegalReasoningAgent:
 
     def _build_graph(self):
         builder = StateGraph(AgentState)
+        
+        # Add Nodes
+        builder.add_node("analyze", self.analyze_node)
+        builder.add_node("identify_risks", self.risk_id_node)
+        builder.add_node("validate", self.validate_node)
+        builder.add_node("finalize", self.verdict_node)
+        
+        # Add Edges
+        builder.set_entry_point("analyze")
+        builder.add_edge("analyze", "identify_risks")
