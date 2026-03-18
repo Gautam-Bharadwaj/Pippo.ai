@@ -1,9 +1,14 @@
 import streamlit as st
 import os
 import pandas as pd
-from src.extract import extract_text_from_pdf
+from src.extract import extract_text_from_pdf, extract_legal_metadata
 from src.clause_splitter import split_into_clauses
 from src.predict import predict_risk
+from src.agent_logic import analyze_risk_with_agent
+import plotly.express as px
+import plotly.graph_objects as go
+from collections import Counter
+import re
 
 # Page Configuration
 st.set_page_config(page_title="Contract Intelligence Unit", page_icon="⚡", layout="wide")
@@ -128,6 +133,48 @@ header {visibility: hidden;}
     background-color: #000000 !important;
     color: #FFFFFF !important;
 }
+/* Scanning Animation */
+@keyframes scan-glow {
+    0% { background-position: -100% 0; opacity: 0.1; }
+    50% { opacity: 0.3; }
+    100% { background-position: 200% 0; opacity: 0.1; }
+}
+
+.scanning-overlay {
+    background: linear-gradient(90deg, transparent, #58A6FF, transparent);
+    background-size: 200% 100%;
+    animation: scan-glow 2s infinite linear;
+    height: 3px;
+    margin-top: 10px;
+}
+
+/* Agentic Insight Box */
+.agentic-panel {
+    background: linear-gradient(135deg, rgba(88, 166, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+    border: 1px solid rgba(88, 166, 255, 0.2);
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.agent-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: #58A6FF;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.15rem;
+}
+
+.agent-text {
+    color: #D1D5DB;
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-top: 15px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -168,9 +215,15 @@ if uploaded_file:
     with open(temp_name, "wb") as f:
         f.write(uploaded_file.getbuffer())
         
-    with st.spinner("Processing Data Streams..."):
+    with st.spinner("Initializing Uplink..."):
+        st.markdown('<div class="scanning-overlay"></div>', unsafe_allow_html=True)
         full_text = extract_text_from_pdf(temp_name)
+        
+        st.markdown('<div class="scanning-overlay"></div>', unsafe_allow_html=True)
         clause_list = split_into_clauses(full_text)
+        
+        # Extract Metadata (Kumar's Task)
+        metadata = extract_legal_metadata(full_text)
         
         # Batch prediction
         processed_data = []
@@ -186,6 +239,21 @@ if uploaded_file:
         os.remove(temp_name)
 
     # Dashboard Metrics (Bento Style)
+    st.markdown('<br>', unsafe_allow_html=True)
+    
+    # Contract DNA (Kumar Gautam's Data Engineering Output)
+    st.markdown('<span class="label-mono">Contract DNA</span>', unsafe_allow_html=True)
+    cols = st.columns(len(metadata))
+    for i, (key, val) in enumerate(metadata.items()):
+        with cols[i]:
+            display_val = ", ".join(val) if isinstance(val, list) and val else (val if val else "NOT_FOUND")
+            st.markdown(f"""
+                <div class="bento-card" style="padding: 15px;">
+                    <span class="label-mono" style="font-size: 0.55rem; opacity: 0.5;">{key}</span>
+                    <p style="font-size: 0.9rem; font-weight: 600; margin: 5px 0 0 0; color: #58A6FF;">{display_val}</p>
+                </div>
+            """, unsafe_allow_html=True)
+    
     st.markdown('<br>', unsafe_allow_html=True)
     st.markdown('<span class="label-mono">Intelligence Report</span>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
@@ -217,6 +285,78 @@ if uploaded_file:
             </div>
         """, unsafe_allow_html=True)
 
+    # Visualization Section
+    st.markdown('<br>', unsafe_allow_html=True)
+    st.markdown('<span class="label-mono">Risk Analytics & Distribution</span>', unsafe_allow_html=True)
+    
+    vis_col1, vis_col2 = st.columns([1, 1.2])
+    
+    # Chart 1: Donut Chart for Risk Composition
+    with vis_col1:
+        st.markdown('<div class="bento-card" style="height: 400px;">', unsafe_allow_html=True)
+        risk_dist = pd.DataFrame({
+            "Status": ["Risky", "Safe"],
+            "Count": [risky_count, len(processed_data) - risky_count]
+        })
+        fig_donut = px.pie(
+            risk_dist, 
+            values="Count", 
+            names="Status", 
+            hole=0.6,
+            color="Status",
+            color_manual={"Risky": "#FF3B30", "Safe": "#34C759"},
+            template="plotly_dark"
+        )
+        fig_donut.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            margin=dict(t=0, b=0, l=0, r=0),
+            showlegend=False,
+            height=300
+        )
+        st.plotly_chart(fig_donut, use_container_width=True)
+        st.markdown('<p style="text-align:center; color:rgba(255,255,255,0.4); font-size:0.8rem; margin-top:-20px;">COMPOSITION_ARRAY</p>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # Chart 2: Top Keywords in Risky Clauses
+    with vis_col2:
+        st.markdown('<div class="bento-card" style="height: 400px;">', unsafe_allow_html=True)
+        risky_text = " ".join([x['clause'] for x in processed_data if x['is_risky']])
+        
+        if risky_text:
+            # Simple keyword extraction
+            words = re.findall(r'\w+', risky_text.lower())
+            stop_words = {'the', 'and', 'to', 'of', 'in', 'is', 'a', 'that', 'for', 'it', 'with', 'as', 'on'}
+            keywords = [w for w in words if len(w) > 3 and w not in stop_words]
+            keyword_counts = Counter(keywords).most_common(8)
+            
+            if keyword_counts:
+                kw_df = pd.DataFrame(keyword_counts, columns=['Keyword', 'Frequency'])
+                fig_bar = px.bar(
+                    kw_df, 
+                    x='Frequency', 
+                    y='Keyword', 
+                    orientation='h',
+                    template="plotly_dark",
+                    color_discrete_sequence=['#58A6FF']
+                )
+                fig_bar.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    margin=dict(t=20, b=20, l=0, r=20),
+                    xaxis_title=None,
+                    yaxis_title=None,
+                    height=300
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
+            else:
+                st.write("Insufficient data for keyword analysis.")
+        else:
+            st.markdown('<div style="height:300px; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.2);">NO_RISK_DETECTED_FOR_ANALYSIS</div>', unsafe_allow_html=True)
+        
+        st.markdown('<p style="text-align:center; color:rgba(255,255,255,0.4); font-size:0.8rem; margin-top:-20px;">TOP_RISK_FACTORS</p>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
     st.markdown('<br>', unsafe_allow_html=True)
     st.markdown('<span class="label-mono">Detailed Clause Audit</span>', unsafe_allow_html=True)
 
@@ -228,14 +368,32 @@ if uploaded_file:
         st.markdown(f"""
             <div class="glass-container">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-                    <span class="risk-tag {risk_class}">{risk_text}</span>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <span class="risk-tag {risk_class}">{risk_text}</span>
+                    </div>
                     <span class="label-mono" style="opacity:0.5;">ID: C-{i+1:03} | CONF: {item['confidence']:.2%}</span>
                 </div>
-                <div style="font-size:1.1rem; color:#E1E4E8; line-height:1.6;">
+                <div style="font-size:1.1rem; color:#E1E4E8; line-height:1.6; margin-bottom: 20px;">
                     {item['clause']}
                 </div>
-            </div>
         """, unsafe_allow_html=True)
+        
+        if item['is_risky']:
+            if st.button(f"🔍 Perform Agentic Deep Audit", key=f"agent_{i}"):
+                with st.spinner("Agentic Reasoning in Progress..."):
+                    agent_res = analyze_risk_with_agent(item['clause'])
+                    st.markdown(f"""
+                        <div class="agentic-panel">
+                            <div class="agent-title">
+                                <span style="font-size: 1.2rem;">⚡</span> AGENTIC_INTELLIGENCE_REASONING_ENGINE
+                            </div>
+                            <div class="agent-text">
+                                {agent_res['explanation']}
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
 
 else:
     # Empty State - AI Command Center Look
