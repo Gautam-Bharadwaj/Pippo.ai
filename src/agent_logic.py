@@ -194,3 +194,13 @@ def analyze_risk_with_agent(clause_text: str) -> Dict[str, Any]:
             "final_verdict": "Agent execution failed."
         }
 
+if __name__ == "__main__":
+    # Test example
+    sample = "The company shall not be liable for any indirect damages under any circumstances."
+    print("Iniatizing Deep Audit...")
+    try:
+        res = analyze_risk_with_agent(sample)
+        import json
+        print(json.dumps(res, indent=2))
+    except Exception as e:
+        print(f"Error: {e}")
