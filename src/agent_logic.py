@@ -202,20 +202,46 @@ def get_mock_response(clause_text: str) -> Dict[str, Any]:
 
 # Compatibility Wrapper
 def analyze_risk_with_agent(clause_text: str) -> Dict[str, Any]:
+    """
+    Public API for the UI. Always returns a dict with at minimum:
+      - explanation (str)
+      - risk_level (str)
+      - issues_detected (list)
+      - suggestion (str)
+    """
     try:
         agent = LegalReasoningAgent()
-        return agent.run_analysis(clause_text)
+        result = agent.run_analysis(clause_text)
     except Exception as e:
         logger.error(f"Critical Agent Failure: {e}")
-        # Standard fallback for production stability
         if "insufficient_quota" in str(e).lower() or "limit" in str(e).lower():
-            return get_mock_response(clause_text)
-        
-        return {
-            "clause": clause_text,
-            "error": str(e),
-            "final_verdict": f"Agent execution encountered an error: {str(e)[:50]}..."
-        }
+            result = get_mock_response(clause_text)
+        else:
+            result = {
+                "clause": clause_text,
+                "error": str(e),
+                "final_verdict": f"Agent execution encountered an error: {str(e)[:100]}..."
+            }
+
+    # Build a unified 'explanation' from whichever fields are present
+    parts = []
+    if result.get("final_verdict"):
+        parts.append(f"**Verdict:** {result['final_verdict']}")
+    if result.get("risk_type"):
+        parts.append(f"**Risk Type:** {result['risk_type']}")
+    if result.get("risk_level"):
+        parts.append(f"**Risk Level:** {result['risk_level']}")
+    if result.get("issues_detected"):
+        issues = result["issues_detected"]
+        if isinstance(issues, list):
+            parts.append("**Issues Detected:**\n" + "\n".join(f"• {i}" for i in issues))
+    if result.get("suggestion"):
+        parts.append(f"**Suggestion:** {result['suggestion']}")
+    if result.get("error"):
+        parts.append(f"⚠️ **Error:** {result['error']}")
+
+    result["explanation"] = "\n\n".join(parts) if parts else "Analysis completed but no detailed explanation was generated."
+    return result
 
 if __name__ == "__main__":
     # Test example
