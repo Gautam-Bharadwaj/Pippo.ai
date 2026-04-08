@@ -467,6 +467,163 @@ if uploaded_file:
             risk_class = "risk-high" if item['is_risky'] else "risk-low"
             st.markdown(f'<div class="glass-container"><div style="display:flex; justify-content:space-between;"><span class="risk-tag {risk_class}">C-{i+1}</span><span class="label-mono">{item["confidence"]:.0%} CONF</span></div><div style="margin-top:10px; color:#C9D1D9;">{item["clause"][:500]}</div></div>', unsafe_allow_html=True)
 
+        # ── Download button — bottom right after Clause Audit ──
+        # Build ODT report in-memory using odfpy
+        def _build_odt_report(metadata, processed_data, risky_count, safe_count, integrity):
+            import io
+            from odf.opendocument import OpenDocumentText
+            from odf.style import Style, TextProperties, ParagraphProperties
+            from odf.text import H, P, Span, LineBreak
+
+            doc = OpenDocumentText()
+
+            # ── Define styles ──────────────────────────────────────────────
+            def _make_style(name, family, bold=False, size="11pt", color="#000000", italic=False, top_margin="0cm", bottom_margin="0.1cm"):
+                s = Style(name=name, family=family)
+                tp_attrs = {"fontsize": size, "color": color}
+                if bold:
+                    tp_attrs["fontweight"] = "bold"
+                if italic:
+                    tp_attrs["fontstyle"] = "italic"
+                s.addElement(TextProperties(**tp_attrs))
+                s.addElement(ParagraphProperties(marginbottom=bottom_margin, margintop=top_margin))
+                doc.styles.addElement(s)
+                return s
+
+            _make_style("Heading1", "paragraph", bold=True, size="16pt", color="#1a1a2e", bottom_margin="0.2cm", top_margin="0.4cm")
+            _make_style("Heading2", "paragraph", bold=True, size="13pt", color="#003366", bottom_margin="0.15cm", top_margin="0.3cm")
+            _make_style("Body",     "paragraph", size="11pt", color="#1a1a1a", bottom_margin="0.1cm")
+            _make_style("Label",    "paragraph", bold=True, size="11pt", color="#444444")
+            _make_style("Safe",     "paragraph", bold=True, size="10pt", color="#2e7d32")
+            _make_style("Risky",    "paragraph", bold=True, size="10pt", color="#c62828")
+            _make_style("Meta",     "paragraph", size="10pt", color="#555555", italic=True)
+            _make_style("Divider",  "paragraph", size="6pt",  color="#cccccc", bottom_margin="0.2cm")
+
+            def h1(text):
+                doc.text.addElement(H(outlinelevel=1, stylename="Heading1", text=text))
+
+            def h2(text):
+                doc.text.addElement(H(outlinelevel=2, stylename="Heading2", text=text))
+
+            def p(text, style="Body"):
+                doc.text.addElement(P(stylename=style, text=text))
+
+            def divider():
+                doc.text.addElement(P(stylename="Divider", text="─" * 80))
+
+            # ── Cover ──────────────────────────────────────────────────────
+            h1("Pippo AI — Contract Analysis Report")
+            p("Prepared by Pippo AI  |  Intelligent Legal Partner", style="Meta")
+            p(f"Total clauses reviewed: {len(processed_data)}   |   "
+              f"Risky clauses found: {risky_count}   |   "
+              f"Safe clauses: {safe_count}", style="Meta")
+            divider()
+
+            # ── 1. Contract Summary ────────────────────────────────────────
+            h2("1. Contract Summary")
+            meta_labels = {
+                "parties":            "Parties Involved",
+                "effective_date":     "Effective Date",
+                "governing_law":      "Governing Law",
+                "jurisdiction":       "Jurisdiction",
+                "termination_notice": "Termination Notice",
+            }
+            found_any = False
+            for raw_key, friendly_label in meta_labels.items():
+                val = metadata.get(raw_key)
+                if val is None:
+                    for k, v in metadata.items():
+                        if raw_key.replace("_", " ") in k.lower().replace("_", " "):
+                            val = v
+                            break
+                if val and str(val).strip() and str(val).strip().upper() not in ("N/A", "NONE", ""):
+                    p(f"{friendly_label}:  {val}", style="Label")
+                    found_any = True
+            if not found_any:
+                p("No contract metadata could be extracted from this document.", style="Meta")
+            divider()
+
+            # ── 2. Risk Summary ────────────────────────────────────────────
+            h2("2. Risk Summary")
+            p(f"Safe Ratio:   {integrity}% of the clauses in this contract appear safe.", style="Body")
+            p(f"Risky Ratio:  {100 - integrity}% of the clauses carry potential risk and should be reviewed carefully.", style="Body")
+            divider()
+
+            # ── 3 & 4. Clause-by-clause breakdown ─────────────────────────
+            h2("3. Plain-English Clause Explanations & Risk Notes")
+            p("Each clause below has been rewritten in simple, everyday language so you can understand "
+              "what this contract is actually saying — without needing a law degree.", style="Body")
+
+            for i, item in enumerate(processed_data):
+                clause_text = item.get("clause", "").strip()
+                is_risky    = item.get("is_risky", False)
+                confidence  = item.get("confidence", 0)
+                conf_pct    = int(round(confidence * 100))
+
+                readable = clause_text.replace("\n", " ").replace("  ", " ")
+                if len(readable) > 800:
+                    readable = readable[:800] + "…"
+
+                doc.text.addElement(P(stylename="Body", text=""))  # blank line
+                p(f"Clause {i + 1}  —  Confidence: {conf_pct}% match", style="Label")
+                p(readable, style="Body")
+
+                if is_risky:
+                    p(f"⚠  Risk Note:  This clause looks risky. You may want to ask a lawyer to review "
+                      f"it before signing, as it could put you at a disadvantage.", style="Risky")
+                else:
+                    p(f"✓  Risk Note:  This clause appears safe and is standard in most contracts. "
+                      f"No immediate concern identified.", style="Safe")
+
+            divider()
+            p("End of Report  —  Generated by Pippo AI", style="Meta")
+
+            buf = io.BytesIO()
+            doc.save(buf)
+            buf.seek(0)
+            return buf.read()
+
+        odt_bytes = _build_odt_report(metadata, processed_data, risky_count, safe_count, integrity)
+
+        st.markdown('<div style="display:flex; justify-content:flex-end; margin-top: 24px; margin-bottom: 8px;">', unsafe_allow_html=True)
+        st.download_button(
+            label="⬇ Download Full Report",
+            data=odt_bytes,
+            file_name="contract_analysis_report.odt",
+            mime="application/vnd.oasis.opendocument.text",
+            key="dl_bottom"
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("""
+        <style>
+        div[data-testid="stDownloadButton"] {
+            display: flex !important;
+            justify-content: flex-end !important;
+            width: 100% !important;
+        }
+        div[data-testid="stDownloadButton"] > button {
+            width: auto !important;
+            padding: 10px 28px !important;
+            height: auto !important;
+            background: rgba(88,166,255,0.1) !important;
+            border: 1px solid rgba(88,166,255,0.35) !important;
+            color: #58A6FF !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            font-size: 0.75rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.05rem !important;
+            border-radius: 8px !important;
+            transition: all 0.2s ease !important;
+        }
+        div[data-testid="stDownloadButton"] > button:hover {
+            background: rgba(88,166,255,0.2) !important;
+            border-color: #58A6FF !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 20px rgba(88,166,255,0.2) !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
 # ─────────────────────────────────────────────────────────────
 # LOGOUT & NAVBAR
 # ─────────────────────────────────────────────────────────────

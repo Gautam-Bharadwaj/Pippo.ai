@@ -13,3 +13,4 @@ reportlab
 joblib
 pytesseract
 pillow
+odfpy
