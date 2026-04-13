@@ -33,21 +33,22 @@ flowchart LR
     H --> I[Risk Category Output]
 ```
 
-## 3. Milestone 2: Agentic Assistant Flow (Upcoming)
-This shows how LangGraph and LLMs will interact for deeper legal reasoning.
+## 3. Milestone 2: Agentic Assistant & Deep Audit Flow
+This flow represents the advanced, agentic legal reasoning using LangGraph and hybrid analysis.
 
 ```mermaid
-stateDiagram-v2
-    [*] --> InputReceived
-    InputReceived --> ExtractingTerms
-    ExtractingTerms --> ClassifyingRisk
-    ClassifyingRisk --> RiskDetected: High/Medium Risk
-    ClassifyingRisk --> LowRisk: Safe
-    RiskDetected --> LLM_Analysis: Ask LLM for Explanation
-    LLM_Analysis --> SuggestingMitigation: How to fix the clause?
-    SuggestingMitigation --> FinalReport
-    LowRisk --> FinalReport
-    FinalReport --> [*]
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1f2937', 'primaryTextColor': '#fff', 'primaryBorderColor': '#ec4899', 'lineColor': '#f472b6'}}}%%
+flowchart LR
+    A[Legal PDF] --> B(OCR & Term Extraction)
+    B --> C(Clause Segmentation)
+    C --> D[ML Risk Prediction]
+    D --> E{High Risk?}
+    E -->|Yes| F[LangGraph Agentic Reasoning]
+    E -->|No| G[Final Status: Nominal]
+    F --> H[Hybrid Risk Scoring]
+    H --> I[SQLite Persistence]
+    I --> J[JSON/PDF Report Export]
+    G --> I
 ```
 
 ## 4. Team Responsibilities & Work Division
