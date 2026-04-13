@@ -1,0 +1,12 @@
+# Handle line endings automatically
+* text=auto
+
+# Ensure bash scripts use LF
+*.sh text eol=lf
+
+# Denote all files that are truly binary and should not be modified
+*.pdf binary
+*.pkl binary
+*.db binary
+*.png binary
+*.jpg binary
