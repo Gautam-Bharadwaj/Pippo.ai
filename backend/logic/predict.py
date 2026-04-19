@@ -14,13 +14,24 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
-# Pre-download NLTK data if not present (quietly)
+# Setup NLTK data path for Vercel deployment
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+nltk_data_path = os.path.join(base_dir, 'nltk_data')
+if os.path.exists(nltk_data_path):
+    nltk.data.path.append(nltk_data_path)
+
+# Pre-download NLTK data check (quietly)
 try:
-    nltk.download('stopwords', quiet=True)
-    nltk.download('wordnet', quiet=True)
-    nltk.download('omw-1.4', quiet=True)
-except:
-    pass
+    # Ensure they are available
+    nltk.data.find('corpora/stopwords')
+    nltk.data.find('corpora/wordnet')
+except LookupError:
+    try:
+        nltk.download('stopwords', quiet=True)
+        nltk.download('wordnet', quiet=True)
+        nltk.download('omw-1.4', quiet=True)
+    except:
+        pass
 
 def clean_text(text):
     """Standardizes text to match the format used during model training."""
