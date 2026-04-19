@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useRef, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 interface Metadata {
   parties?: string;
@@ -37,6 +38,14 @@ export default function Home() {
   const [results, setResults] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const chartData = useMemo(() => {
+    if (!results) return [];
+    return [
+      { name: 'Risky', value: results.summary.risky_clauses, color: '#FF6B6B' },
+      { name: 'Safe', value: results.summary.total_clauses - results.summary.risky_clauses, color: '#51CF66' }
+    ];
+  }, [results]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -75,12 +84,7 @@ export default function Home() {
 
   return (
     <main className="main-container">
-      {/* ─────────────────────────────────────────────────────────────
-          MAIN LAYOUT (SAME AS ORIGINAL app.py)
-      ───────────────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '48px' }}>
-        
-        {/* LEFT COLUMN */}
         <div>
           <div style={{ marginTop: '8vh' }}></div>
           <div className="fade-in">
@@ -99,7 +103,7 @@ export default function Home() {
           <span className="label-mono">Uplink Terminal</span>
           <div 
             className="upload-zone"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => !loading && fileInputRef.current?.click()}
           >
             <input 
               type="file" 
@@ -129,7 +133,6 @@ export default function Home() {
           {error && <p style={{ color: 'var(--brand-red)', marginTop: '10px' }}>{error}</p>}
         </div>
 
-        {/* RIGHT COLUMN (IMAGE) */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <img 
             src="/whisk.png" 
@@ -139,9 +142,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────
-          ANALYSIS RESULTS (SAME AS ORIGINAL app.py)
-      ───────────────────────────────────────────────────────────── */}
       {results && (
         <div className="fade-in" style={{ marginTop: '40px' }}>
             <span className="label-mono">Contract DNA</span>
@@ -156,11 +156,31 @@ export default function Home() {
 
             <span className="label-mono">Risk Analytics</span>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
-                <div className="glass-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px' }}>
-                    {/* Placeholder for Donut Chart which was plotly in original */}
-                    <div style={{ textAlign: 'center' }}>
-                        <div className="stat-value">{results.summary.risky_clauses}</div>
-                        <div className="stat-label">Risky Clauses</div>
+                <div className="glass-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '300px' }}>
+                    <ResponsiveContainer width="100%" height="80%">
+                        <PieChart>
+                            <Pie
+                                data={chartData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                paddingAngle={5}
+                                dataKey="value"
+                            >
+                                {chartData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} stroke="rgba(0,0,0,0.2)" />
+                                ))}
+                            </Pie>
+                        </PieChart>
+                    </ResponsiveContainer>
+                    <div style={{ display:'flex', gap:'20px', marginTop: '-10px' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'0.7rem' }}>
+                            <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#FF6B6B' }}></div> Risky
+                        </div>
+                        <div style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'0.7rem' }}>
+                            <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#51CF66' }}></div> Safe
+                        </div>
                     </div>
                 </div>
                 <div className="glass-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -187,9 +207,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────
-          FOOTER & NAVBAR (SAME AS ORIGINAL app.py)
-      ───────────────────────────────────────────────────────────── */}
       <div className="pippo-footer">
           <span className="label-mono">PIPPO AI</span>
           <span className="label-mono" style={{ opacity: 0.2 }}>SYSTEM NOMINAL // V2.1.0</span>
