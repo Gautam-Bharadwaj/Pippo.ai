@@ -65,14 +65,30 @@ async def analyze_contract(file: UploadFile = File(...)):
         if os.path.exists(temp_path):
             os.remove(temp_path)
             
+        risky_count = sum(1 for x in processed_data if x['is_risky'])
+        integrity = int((sum(1 for x in processed_data if not x['is_risky']) / len(processed_data) * 100)) if processed_data else 0
+
+        # 5. Persistence (Functional Persistence)
+        from backend.logic.database import save_audit
+        try:
+            save_audit(
+                filename=file.filename,
+                total_clauses=len(processed_data),
+                risky_clauses=risky_count,
+                safe_ratio=float(integrity),
+                findings=processed_data
+            )
+        except Exception as e:
+            print(f"Database persistence failed: {e}")
+
         return {
             "filename": file.filename,
             "metadata": metadata,
             "analysis": processed_data,
             "summary": {
                 "total_clauses": len(processed_data),
-                "risky_clauses": sum(1 for x in processed_data if x['is_risky']),
-                "safe_ratio": int((sum(1 for x in processed_data if not x['is_risky']) / len(processed_data) * 100)) if processed_data else 0
+                "risky_clauses": risky_count,
+                "safe_ratio": integrity
             }
         }
     except Exception as e:

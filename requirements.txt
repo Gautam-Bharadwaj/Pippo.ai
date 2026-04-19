@@ -13,4 +13,5 @@ reportlab
 joblib
 pytesseract
 pillow
-odfpy
+matplotlib
+seaborn
